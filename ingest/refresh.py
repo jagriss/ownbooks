@@ -21,6 +21,10 @@ Description: The only supported way to change data/finance.duckdb.
 Usage: pixi run refresh            (ingest new statements + dbt build)
        pixi run refresh --models   (dbt build only, e.g. after editing
                                     seeds/merchant_rules.csv)
+       pixi run refresh --rebuild  (start from an empty database rather
+                                    than a copy of the live one: reloads
+                                    every statement, and drops tables
+                                    that no longer exist in the code)
        from ingest.refresh import refresh   (the app's buttons)
 Returns: exit code 0 if the new database was swapped in, 1 if not.
 """
@@ -92,7 +96,10 @@ def _steps(ingest: bool) -> list[tuple[str, list[str]]]:
 
 
 def refresh(
-    ingest: bool = True, stream: bool = False, on_step=None
+    ingest: bool = True,
+    stream: bool = False,
+    on_step=None,
+    rebuild: bool = False,
 ) -> RefreshResult:
     """Build a new warehouse on a copy and swap it in if it passes.
 
@@ -102,6 +109,9 @@ def refresh(
         Load statements before building. False runs dbt only.
     stream : bool
         Print subprocess output live (CLI) instead of capturing it.
+    rebuild : bool
+        Build from an empty database instead of a copy of the live one.
+        Implies ingest. Still swapped in only if every step passes.
     on_step : callable, optional
         Called with each step's label as it starts (the app's status).
 
@@ -121,7 +131,9 @@ def refresh(
 
         for stale in (build, _wal(build)):
             stale.unlink(missing_ok=True)
-        if live.exists():
+        if rebuild:
+            ingest = True
+        elif live.exists():
             shutil.copy2(live, build)
             if _wal(live).exists():
                 shutil.copy2(_wal(live), _wal(build))
@@ -175,7 +187,11 @@ def refresh(
 
 
 def main() -> int:
-    result = refresh(ingest="--models" not in sys.argv, stream=True)
+    result = refresh(
+        ingest="--models" not in sys.argv,
+        rebuild="--rebuild" in sys.argv,
+        stream=True,
+    )
     print(f"\n{'✔' if result.ok else '✘'} {result.summary}")
     return 0 if result.ok else 1
 

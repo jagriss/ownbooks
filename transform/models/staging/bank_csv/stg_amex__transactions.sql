@@ -5,8 +5,7 @@
 WITH source AS (
 
     SELECT *
-    FROM {{ source('raw_bank', 'transactions') }}
-    WHERE layout = 'amex'
+    FROM {{ source('raw_bank', 'amex') }}
 
 ),
 

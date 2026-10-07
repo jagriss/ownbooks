@@ -1,9 +1,8 @@
 """Bank and credit-card CSV export source (Chase, Amex).
 
 Description: dlt source that reads the CSV exports downloaded from the
-    Chase and American Express websites and yields one row per
-    transaction into a single raw `transactions` table, tagged with
-    the export layout it came from.
+    Chase and American Express websites and loads one raw table per
+    export layout: `chase_checking`, `chase_card`, and `amex`.
 Usage: import `bank_csv_source` from a dlt pipeline; see
     ingest/pipelines/run_bank_csv.py.
 Parameters: none at import time; the statements folder comes from the
@@ -16,6 +15,12 @@ Files live at `<statements_root>/<account_key>/*.csv`. The folder name
 is the account key (matching transform/seeds/accounts.csv), and the
 export layout is detected from the CSV header, not the folder name, so
 a mis-filed file fails loudly rather than loading into the wrong table.
+
+Each table's columns are declared up front and frozen with a dlt schema
+contract. dlt's default is to evolve -- silently add a column when a
+file has a new one -- but here a new column means the bank changed its
+export format, and that should stop the load (and, via the refresh
+runner, leave the live database untouched) until staging is updated.
 
 Neither bank's export includes a stable transaction ID (Amex's
 "Reference" only appears in the extended export), so each row is keyed
@@ -48,22 +53,37 @@ LAYOUT_SIGNATURES = {
     "amex": {"Date", "Description", "Amount"},
 }
 
-# Every column any layout exports (snake_cased), declared up front so
-# the raw table always has them -- even before, say, a first Amex
-# extended export arrives -- and dbt staging can always select them.
-# All text: typing is dbt staging's job.
-KNOWN_COLUMNS = (
-    # Chase checking
-    "details", "posting_date", "balance", "check_or_slip",
-    # Chase credit card
-    "transaction_date", "post_date", "memo",
-    # Amex (extended export adds everything after "amount")
-    "date", "card_member", "account", "extended_details",
-    "appears_on_your_statement_as", "address", "city_state", "zip_code",
-    "country", "reference",
-    # Shared names; meaning differs per layout, see staging models
-    "description", "amount", "type", "category",
-)  # fmt: skip
+# Each layout's columns, snake_cased, exactly as the bank exports them.
+# Declared up front (all text: typing is dbt staging's job) so every
+# table exists with every column even before a file arrives -- e.g. the
+# Amex extended-export columns before the first extended export.
+LAYOUT_COLUMNS = {
+    "chase_checking": (
+        "details", "posting_date", "description", "amount", "type",
+        "balance", "check_or_slip",
+    ),
+    "chase_card": (
+        "transaction_date", "post_date", "description", "category", "type",
+        "amount", "memo",
+    ),
+    # The basic export is date/description/amount; the extended export
+    # ("include all additional transaction details") adds the rest.
+    "amex": (
+        "date", "description", "card_member", "account", "amount",
+        "extended_details", "appears_on_your_statement_as", "address",
+        "city_state", "zip_code", "country", "reference", "category",
+    ),
+}  # fmt: skip
+
+# Columns this module adds to every row, on top of the bank's own.
+METADATA_COLUMNS = {
+    "txn_hash": {"data_type": "text", "nullable": False},
+    "account_key": {"data_type": "text", "nullable": False},
+    "occurrence_n": {"data_type": "bigint"},
+    "source_file": {"data_type": "text"},
+    "source_line": {"data_type": "bigint"},
+    "extracted_at": {"data_type": "timestamp"},
+}
 
 # Per layout, the columns that make up the transaction-identity hash.
 HASH_COLUMNS = {
@@ -229,11 +249,7 @@ def _statement_files(statements_root: str) -> Iterator[tuple[Path, str]]:
 
 @dlt.source(name="bank_csv")
 def bank_csv_source(statements_root: str | None = None) -> Any:
-    """dlt source loading every statement into one `transactions` table.
-
-    One table rather than one per layout because dlt only creates a
-    table once a resource yields rows: with per-layout tables, having
-    no Chase checking export yet would leave dbt's source missing.
+    """dlt source with one resource (raw table) per export layout.
 
     Parameters
     ----------
@@ -243,27 +259,40 @@ def bank_csv_source(statements_root: str | None = None) -> Any:
 
     Returns
     -------
-    Any
-        The `transactions` resource.
+    list
+        Resources `chase_checking`, `chase_card`, and `amex`.
     """
     root = statements_root or os.environ.get(
         "FINANCE_STATEMENTS_ROOT", "data/statements"
     )
+    # Parse each file once, then hand each layout's rows to its resource.
+    rows_by_layout: dict[str, list[dict[str, Any]]] = {
+        layout: [] for layout in LAYOUT_COLUMNS
+    }
+    for path, account_key in _statement_files(root):
+        layout, rows = parse_statement(path, account_key)
+        rows_by_layout[layout].extend(rows)
 
-    @dlt.resource(
-        name="transactions",
-        write_disposition="merge",
-        primary_key="txn_hash",
-        columns={
-            column: {"data_type": "text", "nullable": True}
-            for column in KNOWN_COLUMNS
-        },
-    )
-    def transactions() -> Iterator[dict[str, Any]]:
-        for path, account_key in _statement_files(root):
-            layout, rows = parse_statement(path, account_key)
-            for row in rows:
-                row["layout"] = layout
-                yield row
+    def make_resource(layout: str) -> Any:
+        @dlt.resource(
+            name=layout,
+            write_disposition="merge",
+            primary_key="txn_hash",
+            columns={
+                **{
+                    column: {"data_type": "text", "nullable": True}
+                    for column in LAYOUT_COLUMNS[layout]
+                },
+                **METADATA_COLUMNS,
+            },
+            schema_contract={"columns": "freeze"},
+        )
+        def resource() -> Iterator[Any]:
+            # Create the table even when no file of this layout exists
+            # yet, so dbt's source always resolves.
+            yield dlt.mark.materialize_table_schema()
+            yield from rows_by_layout[layout]
 
-    return transactions
+        return resource
+
+    return [make_resource(layout) for layout in LAYOUT_COLUMNS]

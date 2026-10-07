@@ -13,7 +13,12 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from ingest.sources.bank_csv import detect_layout, parse_statement
+from ingest.sources.bank_csv import (
+    LAYOUT_COLUMNS,
+    METADATA_COLUMNS,
+    detect_layout,
+    parse_statement,
+)
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "statements"
 
@@ -84,6 +89,16 @@ class ParseStatementTest(unittest.TestCase):
         _, rows_a = parse_statement(path, "amex_gold")
         _, rows_b = parse_statement(path, "amex_platinum")
         self.assertNotEqual(rows_a[0]["txn_hash"], rows_b[0]["txn_hash"])
+
+    def test_every_column_is_declared(self) -> None:
+        # Raw tables freeze their columns, so a parsed column missing
+        # from LAYOUT_COLUMNS would fail every load of that layout.
+        for path in sorted(FIXTURES.glob("*/*.csv")):
+            layout, rows = parse_statement(path, path.parent.name)
+            declared = set(LAYOUT_COLUMNS[layout]) | set(METADATA_COLUMNS)
+            with self.subTest(file=path.name):
+                for row in rows:
+                    self.assertLessEqual(set(row), declared)
 
     def test_source_file_is_relative(self) -> None:
         path = next((FIXTURES / "amex_gold").glob("*.csv"))

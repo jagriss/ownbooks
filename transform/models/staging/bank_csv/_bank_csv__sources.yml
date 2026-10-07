@@ -3,26 +3,23 @@ version: 2
 sources:
   - name: raw_bank
     description: >
-      Raw transactions loaded by the dlt `bank_csv` pipeline
-      (ingest/sources/bank_csv.py) from Chase and Amex CSV exports.
-      Every original column is kept as text; typing and sign
-      normalization happen in the per-layout staging models.
+      Raw statement rows loaded by the dlt `bank_csv` pipeline
+      (ingest/sources/bank_csv.py), one table per export layout. Every
+      original column is kept as text under its snake_cased header name;
+      typing and sign normalization happen in the staging models. Each
+      table's columns are frozen by a dlt schema contract, so a bank
+      changing its export format fails the load instead of silently
+      adding columns.
     schema: raw_bank
     tables:
-      - name: transactions
-        description: >
-          One row per exported transaction across all accounts and
-          layouts, merged on txn_hash so overlapping exports don't
-          duplicate rows.
-        columns:
+      - name: chase_checking
+        description: Chase checking account exports, one row per transaction.
+        columns: &metadata_columns
           - name: txn_hash
             description: >
               SHA-256 of (account_key, date, description, amount,
-              occurrence_n); the transaction's stable key.
-          - name: layout
-            description: >
-              Export layout detected from the CSV header: chase_checking,
-              chase_card, or amex.
+              occurrence_n); the transaction's stable key. Rows are
+              merged on it, so overlapping exports don't duplicate.
           - name: account_key
             description: >
               Statement subfolder the file was in; joins to the accounts
@@ -34,8 +31,16 @@ sources:
           - name: source_file
             description: >
               CSV the row was read from, relative to the statements
-              root, e.g. amex_gold/activity.csv.
+              root, e.g. chase_checking/Chase1234_Activity.csv.
           - name: source_line
             description: Line number of the row within source_file.
           - name: extracted_at
             description: UTC timestamp the row was parsed.
+      - name: chase_card
+        description: Chase credit card exports, one row per transaction.
+        columns: *metadata_columns
+      - name: amex
+        description: >
+          Amex exports (basic or extended), one row per transaction.
+          Extended-export columns are null for rows from basic exports.
+        columns: *metadata_columns

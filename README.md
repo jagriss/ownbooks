@@ -85,7 +85,7 @@ my control.
             │
             │  dlt  ─ detect layout from header, hash each row, merge on key
             ▼
- raw_bank.transactions                    one table, every column kept as text
+ raw_bank.chase_checking · chase_card · amex    one table per bank, columns frozen
             │
             │  dbt staging       ─ type columns, one sign convention per bank
             │  dbt intermediate  ─ union → clean descriptions → apply rules
@@ -109,16 +109,31 @@ live database in place (see decision 7 below).
 Most of the interesting work was in the details. These are the choices
 I'd defend in a code review.
 
-### 1. One raw table, every column as text
+### 1. One raw table per bank, with a frozen schema
 
-dlt loads every bank's rows into a single `raw_bank.transactions` table
-tagged with a `layout` column. dbt staging handles typing and renaming,
-one model per bank.
+dlt loads each export format into its own table (`raw_bank.chase_checking`,
+`chase_card`, `amex`), with every original column kept as text under
+its header's name. dbt staging handles typing and renaming, one model
+per table.
 
-*Why:* dlt only creates a table once it receives rows. With a table per
-bank, a missing Chase checking export would break dbt's source
-definition. Keeping raw columns as text also means a bank changing its
-date format is a SQL fix, not a reload.
+- **A table per source, not one wide table.** My first version put
+  every bank into a single table, which meant columns like `type` and
+  `category` held different things depending on the row. Per-bank
+  tables keep every column meaning one thing, and each bank's schema
+  evolves (or doesn't) on its own.
+- **Tables exist before the data does.** Every column is declared up
+  front, and `dlt.mark.materialize_table_schema()` creates each table
+  even when you have no statements from that bank yet, so dbt's sources
+  always resolve.
+- **Columns are frozen with a dlt schema contract.** dlt's default is
+  to evolve: if a file has a new column, add it. Here, a new column
+  means the bank changed its export format, and quietly loading it
+  could mean quietly mis-parsing it. So the load fails with a message
+  naming the bank and the column, and the live database stays as it
+  was until staging is updated. (Tested by adding a fake
+  `Rewards Points` column to a Chase export.)
+- **Raw columns stay text.** If a bank changes its date format, that's
+  a fix in SQL, not a reload.
 
 ### 2. A synthetic transaction key
 
@@ -295,7 +310,7 @@ rm data/statements/*/dummy_*.csv data/finance.duckdb
 | Command | Does |
 |---|---|
 | `pixi run app` | The app. Day to day, this is the only command you need. |
-| `pixi run refresh` | Load new statements and rebuild from the command line (`--models` rebuilds without loading) |
+| `pixi run refresh` | Load new statements and rebuild from the command line. `--models` rebuilds without loading; `--rebuild` starts from an empty database and reloads every statement. |
 | `pixi run sql` / `ui` | Read-only DuckDB shell or notebook UI. Neither ever blocks a refresh. |
 | `pixi run demo` | Run the pipeline on test fixtures into `data/demo.duckdb` |
 | `pixi run dummy-data` | Generate a year of synthetic statements |
@@ -332,7 +347,9 @@ tests/                        parser unit tests + synthetic fixtures
 
 - **Unit tests** (`pixi run test`) cover the parser against synthetic
   fixtures: layout detection, Chase's trailing commas, BOM handling,
-  same-day duplicates, and overlapping exports hashing identically.
+  same-day duplicates, overlapping exports hashing identically, and
+  every parsed column being declared for its table (since columns are
+  frozen).
 - **dbt tests** run on every refresh, and a failure blocks the swap:
 
 | Test | Catches |

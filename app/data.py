@@ -103,9 +103,13 @@ def new_statements() -> list[str]:
     if not db_exists():
         return sorted(on_disk)
     loaded = set(
-        query("SELECT DISTINCT source_file FROM raw_bank.transactions")[
-            "source_file"
-        ]
+        query(
+            """
+            SELECT source_file FROM raw_bank.chase_checking
+            UNION SELECT source_file FROM raw_bank.chase_card
+            UNION SELECT source_file FROM raw_bank.amex
+            """
+        )["source_file"]
     )
     built_at = DB_PATH.stat().st_mtime
     return sorted(
