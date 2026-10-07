@@ -5,59 +5,46 @@ description = "Personal finance ELT: bank CSV exports -> dlt -> DuckDB -> dbt"
 channels = ["conda-forge"]
 platforms = ["osx-arm64", "linux-64"]
 
-# Loads .env (if present) into every task's environment -- pixi has no
-# built-in .env support, this is the whole mechanism.
+# Loads .env (if present) and sets path defaults for every task. Done
+# in the script rather than [activation.env] because pixi's env table
+# overwrites variables already set in the shell, which would make
+# `FINANCE_DUCKDB_PATH=... pixi run app` silently ignore the override.
 [activation]
 scripts = ["scripts/activate-env.sh"]
 
-# Absolute paths derived from the workspace root so that the dlt
-# pipeline and dbt both resolve the same DuckDB file regardless of the
-# directory a task is invoked from.
-[activation.env]
-FINANCE_DUCKDB_PATH = "$PIXI_PROJECT_ROOT/data/finance.duckdb"
-FINANCE_STATEMENTS_ROOT = "$PIXI_PROJECT_ROOT/data/statements"
-
 [tasks]
-ingest = "python -m ingest.pipelines.run_bank_csv"
-# A year of synthetic Chase/Amex exports into data/statements (only
-# touches dummy_*.csv files). Then: pixi run elt && pixi run todo.
-dummy-data = "python scripts/generate_dummy_statements.py"
-# dbt here is the Fusion engine CLI (the "dbt" PyPI package below, not
-# dbt-core). --profiles-dir points it at transform/profiles.yml since
-# Fusion doesn't honor the DBT_PROFILES_DIR env var.
-dbt-seed = "dbt seed --project-dir transform --profiles-dir transform"
-dbt-build = "dbt build --project-dir transform --profiles-dir transform"
-dbt-run = "dbt run --project-dir transform --profiles-dir transform"
-dbt-test = "dbt test --project-dir transform --profiles-dir transform"
-dbt-docs = "dbt docs generate --project-dir transform --profiles-dir transform"
-elt = { depends-on = ["ingest", "dbt-build"] }
-# The categorization feedback loop: biggest uncategorized spend first.
-# Add a rule to transform/seeds/merchant_rules.csv, then `pixi run
-# dbt-build` and re-check.
-todo = """duckdb -readonly "$FINANCE_DUCKDB_PATH" -c "SELECT clean_description, txn_count, total_amount, first_seen, last_seen FROM main_marts.mart_uncategorized ORDER BY abs(total_amount) DESC LIMIT 25" """
-# Browse the warehouse: `ui` opens DuckDB's notebook UI in the browser
-# (http://localhost:4213), `sql` an interactive shell. Both hold the
-# database file, so quit them before `pixi run elt` -- DuckDB allows
-# only one process while another one is writing.
-ui = """duckdb -cmd "INSTALL ui; LOAD ui; CALL start_ui();" "$FINANCE_DUCKDB_PATH" """
-sql = """duckdb "$FINANCE_DUCKDB_PATH" """
-subscriptions = """duckdb -readonly "$FINANCE_DUCKDB_PATH" -c "FROM main_marts.mart_subscriptions ORDER BY annualized_cost DESC" """
-# End-to-end run against the synthetic statements in tests/fixtures, in
-# a throwaway database, so the pipeline can be tried before exporting
-# any real data.
-demo = """
+# Day to day: `pixi run app` -- everything else is in the app. Tasks
+# whose names start with "_" are plumbing, hidden from `pixi task list`.
+app = { cmd = "streamlit run app/app.py", description = "Open the finance app (http://localhost:8501, this machine only)" }
+refresh = { cmd = "python -m ingest.refresh", description = "Load new statements and rebuild, on a copy swapped in only if tests pass (--models: rebuild only)" }
+# Read-only so they never conflict with a refresh, which builds on a
+# copy and swaps it in; reopen them to see data from a newer refresh.
+sql = { cmd = """duckdb -readonly "$FINANCE_DUCKDB_PATH" """, description = "Read-only DuckDB shell on the warehouse" }
+ui = { cmd = """duckdb -readonly -cmd "INSTALL ui; LOAD ui; CALL start_ui();" "$FINANCE_DUCKDB_PATH" """, description = "Read-only DuckDB notebook UI (http://localhost:4213)" }
+# Synthetic data, never real: dummy-data writes dummy_*.csv into
+# data/statements; demo runs the fixtures into data/demo.duckdb.
+dummy-data = { cmd = "python scripts/generate_dummy_statements.py", description = "Write a year of synthetic statements to data/statements" }
+demo = { cmd = """
 export FINANCE_STATEMENTS_ROOT=$PIXI_PROJECT_ROOT/tests/fixtures/statements &&
 export FINANCE_DUCKDB_PATH=$PIXI_PROJECT_ROOT/data/demo.duckdb &&
-python -m ingest.pipelines.run_bank_csv &&
-dbt build --project-dir transform --profiles-dir transform
-"""
-test = "python -m unittest discover -s tests -t ."
+python -m ingest.refresh
+""", description = "Run the pipeline on test fixtures into data/demo.duckdb" }
+test = { cmd = "python -m unittest discover -s tests -t .", description = "Run unit tests" }
 # Data-leak guard: `install-hooks` makes git run it on every commit
 # (once per clone); `check-private` scans everything already tracked.
-install-hooks = "git config core.hooksPath .githooks"
-check-private = "python scripts/check_private_data.py --all"
-fmt = "black ingest tests && isort ingest tests"
-lint-sql = "sqlfluff lint transform/models"
+install-hooks = { cmd = "git config core.hooksPath .githooks", description = "Enable the commit-time data-leak check (once per clone)" }
+check-private = { cmd = "python scripts/check_private_data.py --all", description = "Scan tracked files for financial data or personal identifiers" }
+fmt = { cmd = "black ingest tests app scripts && isort ingest tests app scripts", description = "Format Python" }
+lint-sql = { cmd = "sqlfluff lint transform/models", description = "Lint dbt SQL" }
+
+# Plumbing. These write to the LIVE database directly, bypassing the
+# copy-and-swap -- for debugging only; use `refresh`.
+# dbt here is the Fusion engine CLI (the "dbt" PyPI package, not
+# dbt-core); --profiles-dir is explicit since Fusion doesn't honor
+# DBT_PROFILES_DIR.
+_ingest = "python -m ingest.pipelines.run_bank_csv"
+_dbt-build = "dbt build --project-dir transform --profiles-dir transform"
+_dbt-docs = "dbt docs generate --project-dir transform --profiles-dir transform"
 
 # Conda dependencies, resolved together by the conda-forge solver
 # (pixi.lock pins the exact builds that make an environment
@@ -65,11 +52,12 @@ lint-sql = "sqlfluff lint transform/models"
 [dependencies]
 python = "3.12.*"
 duckdb = ">=1.1,<2"        # local warehouse; also used directly from Python
-duckdb-cli = ">=1.1,<2"    # `duckdb` shell for the todo/subscriptions tasks
+duckdb-cli = ">=1.1,<2"    # `duckdb` shell for the sql/ui tasks
 dlt = ">=1.4,<2"           # data ingestion framework
 sqlfluff = ">=3.1,<4"
 black = ">=24.8,<26"
 isort = ">=5.13,<7"
+streamlit = ">=1.46,<2"
 
 # PyPI dependencies: the "dbt" package (not dbt-core) is the dbt
 # Fusion engine CLI -- a pre-release, not yet published on conda-forge.

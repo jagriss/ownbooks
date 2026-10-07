@@ -51,6 +51,7 @@ logs/
 
 # Secrets
 .env
+.streamlit/secrets.toml
 
 # Editors / OS
 .DS_Store

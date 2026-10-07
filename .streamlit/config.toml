@@ -1,0 +1,12 @@
+# Financial data: serve to this machine only, and send nothing to
+# Streamlit's usage telemetry.
+[server]
+address = "localhost"
+port = 8501
+
+[browser]
+gatherUsageStats = false
+serverAddress = "localhost"
+
+[client]
+toolbarMode = "minimal"

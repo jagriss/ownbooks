@@ -6,4 +6,4 @@ target-version = ["py312"]
 [tool.isort]
 profile = "black"
 line_length = 80
-known_first_party = ["ingest"]
+known_first_party = ["ingest", "data", "charts"]
