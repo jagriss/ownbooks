@@ -1,0 +1,22 @@
+version: 2
+
+models:
+  - name: int_transactions__unioned
+    description: All staging models stacked into one shape.
+  - name: int_transactions__cleaned
+    description: >
+      Adds clean_description: uppercased, whitespace-collapsed, with POS
+      prefixes, ACH trace IDs and store numbers stripped.
+  - name: int_transactions__categorized
+    description: Adds merchant_name and category from seeds/merchant_rules.csv.
+    columns:
+      - name: txn_id
+        tests:
+          - unique
+  - name: int_transactions__transfers
+    description: >
+      One row per side of each paired transfer (txn_id -> matched_txn_id).
+    columns:
+      - name: txn_id
+        tests:
+          - unique

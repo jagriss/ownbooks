@@ -1,0 +1,40 @@
+version: 2
+
+models:
+  - name: stg_chase__checking_transactions
+    description: >
+      Typed Chase checking transactions, amount signed outflow-negative.
+    columns: &staging_columns
+      - name: txn_id
+        description: Stable transaction key (raw txn_hash).
+        tests:
+          - not_null
+          - unique
+      - name: txn_date
+        description: Date the transaction posted (checking) or occurred (cards).
+        tests:
+          - not_null
+      - name: amount
+        description: >
+          Signed amount from the account holder's view: negative is money
+          out (a purchase, a bill), positive is money in (pay, refunds,
+          card payments received).
+        tests:
+          - not_null
+      - name: account_key
+        description: Account the transaction belongs to.
+        tests:
+          - relationships:
+              arguments:
+                to: ref('accounts')
+                field: account_key
+  - name: stg_chase__card_transactions
+    description: >
+      Typed Chase credit card transactions, amount signed
+      outflow-negative.
+    columns: *staging_columns
+  - name: stg_amex__transactions
+    description: >
+      Typed Amex transactions, sign flipped to outflow-negative and the
+      city/state padding stripped from description.
+    columns: *staging_columns

@@ -1,0 +1,4 @@
+#!/bin/sh
+# Refuses commits that would add financial data or personal identifiers.
+# Enabled per clone with `pixi run install-hooks` (sets core.hooksPath).
+exec python3 "$(git rev-parse --show-toplevel)/scripts/check_private_data.py"

@@ -1,0 +1,21 @@
+pattern,merchant_name,category,priority
+PAYMENT TO CHASE CARD%,Chase card payment,Transfer,1
+PAYMENT THANK YOU%,Chase card payment,Transfer,1
+AMERICAN EXPRESS ACH PMT%,Amex payment,Transfer,1
+AUTOPAY PAYMENT%,Amex payment,Transfer,1
+ONLINE PAYMENT - THANK YOU%,Amex payment,Transfer,1
+%PAYROLL%,Payroll,Income,10
+ZELLE PAYMENT TO LANDLORD%,Rent,Rent,10
+PGANDE%,PG&E,Utilities,10
+NETFLIX%,Netflix,Subscriptions,10
+SPOTIFY%,Spotify,Subscriptions,10
+NYTIMES%,New York Times,Subscriptions,10
+BLUE BOTTLE%,Blue Bottle Coffee,Coffee,10
+WHOLEFDS%,Whole Foods,Groceries,10
+TRADER JOE%,Trader Joe's,Groceries,10
+UBER%EATS%,Uber Eats,Dining,5
+UBER%,Uber,Rideshare,10
+SHELL OIL%,Shell,Gas,10
+AMAZON%,Amazon,Shopping,10
+DELTA AIR%,Delta,Travel,10
+ATM WITHDRAWAL%,ATM,Cash,10

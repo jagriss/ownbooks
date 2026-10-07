@@ -1,0 +1,39 @@
+version: 2
+
+seeds:
+  - name: merchant_rules
+    description: >
+      Categorization rules. `pattern` is an ILIKE pattern matched against
+      clean_description (% = any text); the lowest `priority` match wins,
+      so put specific rules (UBER%EATS%) at a lower number than general
+      ones (UBER%).
+    columns:
+      - name: category
+        tests:
+          - relationships:
+              arguments:
+                to: ref('categories')
+                field: category
+  - name: categories
+    description: >
+      Category list. is_spend = false excludes a category from spend
+      totals (income, transfers).
+    columns:
+      - name: category
+        tests:
+          - unique
+          - not_null
+  - name: accounts
+    description: >
+      One row per account. account_key must equal the folder name under
+      data/statements/ that holds that account's CSV exports.
+    columns:
+      - name: account_key
+        tests:
+          - unique
+          - not_null
+      - name: account_type
+        tests:
+          - accepted_values:
+              arguments:
+                values: ["checking", "savings", "credit"]

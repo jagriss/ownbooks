@@ -1,0 +1,4 @@
+account_key,institution,account_name,account_type
+chase_checking,chase,Chase Checking,checking
+chase_sapphire,chase,Chase Sapphire,credit
+amex_gold,amex,Amex Gold,credit

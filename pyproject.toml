@@ -1,0 +1,9 @@
+# Formatter configuration only; dependencies are managed by pixi.toml.
+[tool.black]
+line-length = 80
+target-version = ["py312"]
+
+[tool.isort]
+profile = "black"
+line_length = 80
+known_first_party = ["ingest"]

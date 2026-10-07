@@ -1,0 +1,41 @@
+version: 2
+
+sources:
+  - name: raw_bank
+    description: >
+      Raw transactions loaded by the dlt `bank_csv` pipeline
+      (ingest/sources/bank_csv.py) from Chase and Amex CSV exports.
+      Every original column is kept as text; typing and sign
+      normalization happen in the per-layout staging models.
+    schema: raw_bank
+    tables:
+      - name: transactions
+        description: >
+          One row per exported transaction across all accounts and
+          layouts, merged on txn_hash so overlapping exports don't
+          duplicate rows.
+        columns:
+          - name: txn_hash
+            description: >
+              SHA-256 of (account_key, date, description, amount,
+              occurrence_n); the transaction's stable key.
+          - name: layout
+            description: >
+              Export layout detected from the CSV header: chase_checking,
+              chase_card, or amex.
+          - name: account_key
+            description: >
+              Statement subfolder the file was in; joins to the accounts
+              seed.
+          - name: occurrence_n
+            description: >
+              1-based count of identical rows within the source file,
+              so genuine same-day duplicates stay distinct.
+          - name: source_file
+            description: >
+              CSV the row was read from, relative to the statements
+              root, e.g. amex_gold/activity.csv.
+          - name: source_line
+            description: Line number of the row within source_file.
+          - name: extracted_at
+            description: UTC timestamp the row was parsed.

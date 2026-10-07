@@ -1,0 +1,49 @@
+name: "finance"
+version: "1.0.0"
+config-version: 2
+
+profile: "finance"
+
+model-paths: ["models"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+
+target-path: "target"
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+models:
+  finance:
+    staging:
+      +materialized: view
+      +schema: staging
+    intermediate:
+      +materialized: view
+      +schema: intermediate
+    marts:
+      +materialized: table
+      +schema: marts
+
+seeds:
+  finance:
+    +schema: seeds
+    merchant_rules:
+      +column_types:
+        pattern: varchar
+        merchant_name: varchar
+        category: varchar
+        priority: integer
+    categories:
+      +column_types:
+        category: varchar
+        category_group: varchar
+        is_essential: boolean
+        is_spend: boolean
+    accounts:
+      +column_types:
+        account_key: varchar
+        institution: varchar
+        account_name: varchar
+        account_type: varchar

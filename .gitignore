@@ -1,0 +1,58 @@
+# ------------------------------------------------------------------
+# FINANCIAL DATA -- never commit. Layer 1 of 2; .githooks/pre-commit
+# (scripts/check_private_data.py) is layer 2 and also catches `git add
+# -f`. Patterns spell out case variants with [xX] because Chase exports
+# ".CSV" and macOS's case-insensitive matching would hide a miss that a
+# Linux clone or CI would not.
+# ------------------------------------------------------------------
+
+# Everything under data/ (statements, warehouse, exports, scratch).
+data/**
+!data/statements/
+!data/statements/.gitkeep
+
+# Statement / export / warehouse formats, anywhere in the repo.
+*.[cC][sS][vV]
+*.[tT][sS][vV]
+*.[xX][lL][sS]
+*.[xX][lL][sS][xX]
+*.[oO][fF][xX]
+*.[qQ][fF][xX]
+*.[qQ][bB][oO]
+*.[pP][dD][fF]
+*.[pP][aA][rR][qQ][uU][eE][tT]
+*.[dD][uU][cC][kK][dD][bB]
+*.[dD][uU][cC][kK][dD][bB].[wW][aA][lL]
+*.[dD][bB]
+*.[sS][qQ][lL][iI][tT][eE]*
+
+# Allowed CSVs: hand-written rules, and synthetic fixtures only. The
+# pre-commit hook size-checks and content-scans these.
+!transform/seeds/*.csv
+!tests/fixtures/statements/*/*.csv
+
+# pixi
+.pixi/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+
+# dlt working state
+.dlt/
+!.dlt/config.toml
+
+# dbt (compiled SQL, run results, and logs can echo data values)
+transform/target/
+transform/dbt_packages/
+transform/logs/
+logs/
+
+# Secrets
+.env
+
+# Editors / OS
+.DS_Store
+.idea/
+.vscode/

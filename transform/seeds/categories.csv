@@ -1,0 +1,15 @@
+category,category_group,is_essential,is_spend
+Rent,Housing,true,true
+Utilities,Housing,true,true
+Groceries,Food,true,true
+Dining,Food,false,true
+Coffee,Food,false,true
+Gas,Transport,true,true
+Rideshare,Transport,false,true
+Travel,Travel,false,true
+Shopping,Shopping,false,true
+Subscriptions,Entertainment,false,true
+Cash,Cash,false,true
+Uncategorized,Uncategorized,false,true
+Income,Income,false,false
+Transfer,Transfer,false,false
