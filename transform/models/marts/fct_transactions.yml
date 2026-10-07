@@ -1,0 +1,79 @@
+version: 2
+
+models:
+  - name: fct_transactions
+    description: "One row per transaction across all accounts: cleaned, categorized, and with transfers between your own accounts paired."
+    columns:
+      - name: txn_id
+        description: "Stable transaction key: a SHA-256 hash of the account, date, description, amount, and the row's occurrence within its source file."
+        tests:
+          - not_null
+          - unique
+      - name: txn_date
+        description: "Date the transaction posted (checking) or occurred (credit cards)."
+        tests:
+          - not_null
+      - name: txn_month
+        description: "First day of the transaction's month."
+        tests:
+          - not_null
+      - name: account_key
+        description: "Account the transaction belongs to; matches a folder under data/statements/ and a row in the accounts seed."
+        tests:
+          - relationships:
+              arguments:
+                to: ref('accounts')
+                field: account_key
+      - name: account_name
+        description: "Display name of the account, from the accounts seed."
+      - name: account_type
+        description: "Account type from the accounts seed: checking, savings, or credit."
+      - name: institution
+        description: "Bank that issued the account: chase or amex."
+      - name: raw_description
+        description: "Description exactly as the bank exported it."
+      - name: clean_description
+        description: "description uppercased and whitespace-collapsed, with point-of-sale prefixes, ACH trace IDs, and store numbers removed. Merchant rules match against it."
+      - name: merchant_name
+        description: "Merchant name from the matching rule, else clean_description."
+      - name: category
+        description: "Category from the matching merchant rule, else the bank's category mapped through bank_category_map, else Uncategorized."
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('categories')
+                field: category
+      - name: category_source
+        description: "Where category came from: rule, bank, or none."
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["rule", "bank", "none"]
+      - name: category_group
+        description: "Group the category belongs to, from the categories seed."
+      - name: is_essential
+        description: "Whether the category is essential spending, from the categories seed."
+      - name: is_spend
+        description: "Whether the category counts as spending; false for income and transfers."
+      - name: is_transfer
+        description: "Whether the transaction moves money between your own accounts."
+      - name: transfer_matched_txn_id
+        description: "For transfers, the txn_id of the other side of the movement; null when unmatched or not a transfer."
+      - name: amount
+        description: "Signed amount from the account holder's side: negative is money out (purchases, bills), positive is money in (pay, refunds, card payments received)."
+        tests:
+          - not_null
+      - name: spend_amount
+        description: "Money spent: the negated amount for spend categories (refunds reduce it), null for income and transfers."
+      - name: matched_pattern
+        description: "The merchant_rules pattern that categorized the transaction; null when no rule matched."
+      - name: bank_type
+        description: "Transaction type as the bank labels it, e.g. ACH_DEBIT or Sale. Null for Amex, whose export has no type."
+      - name: bank_category
+        description: "Category the bank itself assigns. Null for Chase checking, whose export has none."
+      - name: source_file
+        description: "CSV the row was loaded from, relative to the statements folder."
+      - name: extracted_at
+        description: "UTC timestamp when the row was parsed from its CSV."

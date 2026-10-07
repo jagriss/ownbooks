@@ -13,14 +13,14 @@ Notes
 -----
 Files live at `<statements_root>/<account_key>/*.csv`. The folder name
 is the account key (matching transform/seeds/accounts.csv), and the
-export layout is detected from the CSV header, not the folder name, so
-a mis-filed file fails loudly rather than loading into the wrong table.
+export layout is detected from the CSV header, so a file can only load
+into the table its header matches.
 
 Each table's columns are declared up front and frozen with a dlt schema
-contract. dlt's default is to evolve -- silently add a column when a
-file has a new one -- but here a new column means the bank changed its
-export format, and that should stop the load (and, via the refresh
-runner, leave the live database untouched) until staging is updated.
+contract. A column that isn't declared means the bank changed its
+export format, so the load fails with an error naming the table and
+column, and the refresh runner leaves the live database untouched until
+the declaration and staging model are updated.
 
 Neither bank's export includes a stable transaction ID (Amex's
 "Reference" only appears in the extended export), so each row is keyed

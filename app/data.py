@@ -29,6 +29,9 @@ STATEMENTS = Path(
     os.environ.get("FINANCE_STATEMENTS_ROOT", ROOT / "data" / "statements")
 )
 SEEDS = ROOT / "transform" / "seeds"
+# DuckDB names a database's catalog after its file stem (finance, demo),
+# so queries build fully qualified names from it: CATALOG.schema.table.
+CATALOG = '"' + DB_PATH.stem.replace('"', '""') + '"'
 RULE_COLUMNS = ["pattern", "merchant_name", "category", "priority"]
 CATEGORY_COLUMNS = ["category", "category_group", "is_essential", "is_spend"]
 
@@ -104,10 +107,18 @@ def new_statements() -> list[str]:
         return sorted(on_disk)
     loaded = set(
         query(
-            """
-            SELECT source_file FROM raw_bank.chase_checking
-            UNION SELECT source_file FROM raw_bank.chase_card
-            UNION SELECT source_file FROM raw_bank.amex
+            f"""
+            SELECT
+            source_file
+            FROM {CATALOG}.raw_bank.chase_checking
+            UNION
+            SELECT
+            source_file
+            FROM {CATALOG}.raw_bank.chase_card
+            UNION
+            SELECT
+            source_file
+            FROM {CATALOG}.raw_bank.amex
             """
         )["source_file"]
     )

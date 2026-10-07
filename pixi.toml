@@ -5,10 +5,10 @@ description = "Personal finance that never leaves your laptop: bank CSVs -> dlt 
 channels = ["conda-forge"]
 platforms = ["osx-arm64", "linux-64"]
 
-# Loads .env (if present) and sets path defaults for every task. Done
-# in the script rather than [activation.env] because pixi's env table
-# overwrites variables already set in the shell, which would make
-# `FINANCE_DUCKDB_PATH=... pixi run app` silently ignore the override.
+# Loads .env (if present) and sets path defaults for every task. The
+# defaults live in the script because pixi's [activation.env] table
+# overwrites variables already set in the shell; the script keeps a
+# shell override such as `FINANCE_DUCKDB_PATH=... pixi run app`.
 [activation]
 scripts = ["scripts/activate-env.sh"]
 
@@ -35,7 +35,7 @@ test = { cmd = "python -m unittest discover -s tests -t .", description = "Run u
 install-hooks = { cmd = "git config core.hooksPath .githooks", description = "Enable the commit-time data-leak check (once per clone)" }
 check-private = { cmd = "python scripts/check_private_data.py --all", description = "Scan tracked files for financial data or personal identifiers" }
 fmt = { cmd = "black ingest tests app scripts && isort ingest tests app scripts", description = "Format Python" }
-lint-sql = { cmd = "sqlfluff lint transform/models", description = "Lint dbt SQL" }
+lint-sql = { cmd = "sqlfluff lint transform/models transform/tests", description = "Lint dbt SQL" }
 
 # Plumbing. These write to the LIVE database directly, bypassing the
 # copy-and-swap -- for debugging only; use `refresh`.

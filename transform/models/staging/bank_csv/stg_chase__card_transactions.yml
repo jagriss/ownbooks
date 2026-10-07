@@ -1,0 +1,40 @@
+version: 2
+
+models:
+  - name: stg_chase__card_transactions
+    description: "One row per Chase credit card transaction, typed, with amounts signed outflow-negative as exported."
+    columns:
+      - name: txn_id
+        description: "Stable transaction key: a SHA-256 hash of the account, date, description, amount, and the row's occurrence within its source file."
+        tests:
+          - not_null
+          - unique
+      - name: account_key
+        description: "Account the transaction belongs to; matches a folder under data/statements/ and a row in the accounts seed."
+        tests:
+          - relationships:
+              arguments:
+                to: ref('accounts')
+                field: account_key
+      - name: institution
+        description: "Bank that issued the account: chase or amex."
+      - name: txn_date
+        description: "Date the transaction posted (checking) or occurred (credit cards)."
+        tests:
+          - not_null
+      - name: description
+        description: "Bank description, trimmed. For Amex, only the merchant part, without the padded city and state."
+      - name: raw_description
+        description: "Description exactly as the bank exported it."
+      - name: amount
+        description: "Signed amount from the account holder's side: negative is money out (purchases, bills), positive is money in (pay, refunds, card payments received)."
+        tests:
+          - not_null
+      - name: bank_type
+        description: "Transaction type as the bank labels it, e.g. ACH_DEBIT or Sale. Null for Amex, whose export has no type."
+      - name: bank_category
+        description: "Category the bank itself assigns. Null for Chase checking, whose export has none."
+      - name: source_file
+        description: "CSV the row was loaded from, relative to the statements folder."
+      - name: extracted_at
+        description: "UTC timestamp when the row was parsed from its CSV."

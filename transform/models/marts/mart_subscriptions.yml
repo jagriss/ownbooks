@@ -1,0 +1,27 @@
+version: 2
+
+models:
+  - name: mart_subscriptions
+    description: "One row per recurring charge: a merchant charging 3+ times, every 25-35 days, for an amount varying under 5%."
+    columns:
+      - name: merchant_name
+        description: "Merchant making the recurring charge."
+        tests:
+          - not_null
+          - unique
+      - name: category
+        description: "The category most of the merchant's charges fall under."
+      - name: charge_count
+        description: "Number of charges detected."
+      - name: avg_amount
+        description: "Average charge amount, rounded to cents."
+      - name: avg_gap_days
+        description: "Average number of days between charges."
+      - name: first_charged
+        description: "Date of the earliest charge."
+      - name: last_charged
+        description: "Date of the latest charge."
+      - name: next_expected
+        description: "Expected date of the next charge: last_charged plus the average gap."
+      - name: annualized_cost
+        description: "avg_amount times 12."

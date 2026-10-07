@@ -13,7 +13,20 @@ st.caption(
 )
 
 subs = data.query(
-    "FROM main_marts.mart_subscriptions ORDER BY annualized_cost DESC"
+    f"""
+    SELECT
+    merchant_name
+    ,category
+    ,charge_count
+    ,avg_amount
+    ,avg_gap_days
+    ,first_charged
+    ,last_charged
+    ,next_expected
+    ,annualized_cost
+    FROM {data.CATALOG}.main_marts.mart_subscriptions
+    ORDER BY annualized_cost DESC
+    """
 )
 if subs.empty:
     st.info("No recurring charges detected yet; it needs 3+ months of data.")

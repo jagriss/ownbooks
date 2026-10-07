@@ -1,0 +1,21 @@
+version: 2
+
+models:
+  - name: dim_merchants
+    description: "One row per merchant with lifetime spend and activity window, excluding transfers."
+    columns:
+      - name: merchant_name
+        description: "Merchant name from the matching rule, else the cleaned bank description."
+        tests:
+          - not_null
+          - unique
+      - name: category
+        description: "The category most of the merchant's transactions fall under."
+      - name: txn_count
+        description: "Number of transactions with the merchant."
+      - name: total_spend
+        description: "Lifetime spend with the merchant, net of refunds."
+      - name: first_seen
+        description: "Date of the earliest transaction with the merchant."
+      - name: last_seen
+        description: "Date of the latest transaction with the merchant."

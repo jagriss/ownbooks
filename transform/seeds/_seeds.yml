@@ -22,7 +22,8 @@ seeds:
       ILIKE pattern (Restaurant-% covers every Amex restaurant subtype);
       the longest matching pattern wins, so specific rows beat catch-alls.
       Leave a bank category out when no mapping is clearly right -- those
-      transactions stay Uncategorized and surface for a rule instead.
+      transactions stay Uncategorized and appear in mart_uncategorized
+      for a rule.
     columns:
       - name: institution
         tests:

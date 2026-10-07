@@ -1,16 +1,15 @@
 """Rebuild the warehouse on a copy, then swap it in atomically.
 
-Description: The only supported way to change data/finance.duckdb.
+Description: The supported way to change data/finance.duckdb.
     DuckDB allows one writing process per file, and a writer can't open
-    the file while anyone else has it open -- so building in place
-    collides with the app, `pixi run sql`, or the DuckDB UI. Instead:
+    the file while another process has it open. A refresh therefore
+    never opens the live file for writing:
 
     1. copy the live file to data/.build/finance.duckdb (a byte copy;
-       it needs no DuckDB lock, so open readers don't block it). Same
-       file name in another folder, not finance.build.duckdb: DuckDB
-       names the catalog after the file stem, and dbt writes that name
-       into every view, so a different stem would break the views once
-       the file is renamed back;
+       it needs no DuckDB lock, so open readers don't block it). The
+       copy keeps the live file's name, in another folder, because
+       DuckDB names the catalog after the file stem and dbt writes that
+       name into every view;
     2. run ingestion and/or `dbt build` against the copy;
     3. if every step succeeds (dbt tests included), os.replace() the
        copy over the live file -- atomic, so readers see either the old
@@ -21,10 +20,9 @@ Description: The only supported way to change data/finance.duckdb.
 Usage: pixi run refresh            (ingest new statements + dbt build)
        pixi run refresh --models   (dbt build only, e.g. after editing
                                     seeds/merchant_rules.csv)
-       pixi run refresh --rebuild  (start from an empty database rather
-                                    than a copy of the live one: reloads
-                                    every statement, and drops tables
-                                    that no longer exist in the code)
+       pixi run refresh --rebuild  (start from an empty database: reloads
+                                    every statement and contains only
+                                    the tables the code defines)
        from ingest.refresh import refresh   (the app's buttons)
 Returns: exit code 0 if the new database was swapped in, 1 if not.
 """
@@ -108,10 +106,11 @@ def refresh(
     ingest : bool
         Load statements before building. False runs dbt only.
     stream : bool
-        Print subprocess output live (CLI) instead of capturing it.
+        Print subprocess output live (CLI); False captures it.
     rebuild : bool
-        Build from an empty database instead of a copy of the live one.
-        Implies ingest. Still swapped in only if every step passes.
+        Build from an empty database, not a copy of the live one.
+        Implies ingest. The result is swapped in only if every step
+        passes.
     on_step : callable, optional
         Called with each step's label as it starts (the app's status).
 

@@ -1,6 +1,5 @@
 """SQL: read-only ad hoc queries against the warehouse.
 
-Replaces reaching for `pixi run sql` / `pixi run ui` for quick looks.
 Queries run on a read-only connection, so nothing here can change data.
 """
 
@@ -11,29 +10,49 @@ import data
 
 st.title("SQL")
 
+FCT = f"{data.CATALOG}.main_marts.fct_transactions"
+MONTHLY = f"{data.CATALOG}.main_marts.mart_monthly_spend"
+
 EXAMPLES = {
-    "Biggest purchases this year": """SELECT txn_date, merchant_name, category, -amount AS spent
-FROM main_marts.fct_transactions
+    "Biggest purchases this year": f"""SELECT
+txn_date
+,merchant_name
+,category
+,-amount AS spent
+FROM {FCT}
 WHERE amount < 0 AND NOT is_transfer
-  AND txn_date >= date_trunc('year', current_date)
+    AND txn_date >= date_trunc('year', current_date)
 ORDER BY spent DESC
 LIMIT 20""",
-    "Spend by merchant": """SELECT merchant_name, category, count(*) AS txns,
-       sum(spend_amount) AS spent
-FROM main_marts.fct_transactions
+    "Spend by merchant": f"""SELECT
+merchant_name
+,category
+,count(*) AS txns
+,sum(spend_amount) AS spent
+FROM {FCT}
 WHERE is_spend
 GROUP BY ALL
 ORDER BY spent DESC""",
-    "Month over month by category": """PIVOT (
-    SELECT strftime(txn_month, '%Y-%m') AS month, category, spend
-    FROM main_marts.mart_monthly_spend
+    "Month over month by category": f"""WITH monthly AS (
+    SELECT
+        strftime(txn_month, '%Y-%m') AS month
+        ,category
+        ,spend
+    FROM {MONTHLY}
 )
+
+PIVOT monthly
 ON month USING sum(spend)
 GROUP BY category
 ORDER BY category""",
-    "Why was this categorized?": """SELECT raw_description, clean_description, matched_pattern,
-       merchant_name, category
-FROM main_marts.fct_transactions
+    "Why was this categorized?": f"""SELECT
+raw_description
+,clean_description
+,matched_pattern
+,merchant_name
+,category
+,category_source
+FROM {FCT}
 WHERE raw_description ILIKE '%uber%'
 LIMIT 50""",
 }
@@ -43,9 +62,7 @@ pick = st.selectbox(
 )
 sql = st.text_area(
     "Query",
-    value=EXAMPLES.get(
-        pick, "SELECT *\nFROM main_marts.fct_transactions\nLIMIT 100"
-    ),
+    value=EXAMPLES.get(pick, f"SELECT\n*\nFROM {FCT}\nLIMIT 100"),
     height=200,
     key=f"sql::{pick}",
     label_visibility="collapsed",
@@ -69,17 +86,23 @@ if run or st.session_state.get("sql_last") == sql:
 with st.expander("Tables"):
     tables = data.query(
         """
-        SELECT table_schema AS schema, table_name AS name,
-               lower(table_type) AS type
-        FROM information_schema.tables
-        WHERE table_schema IN ('main_marts', 'main_intermediate',
-                               'main_staging', 'main_seeds', 'raw_bank')
-          AND table_name NOT LIKE '\\_dlt%' ESCAPE '\\'
-        ORDER BY schema = 'main_marts' DESC, schema, name
-        """
+        SELECT
+        table_catalog || '.' || table_schema AS schema
+        ,table_name AS name
+        ,lower(table_type) AS type
+        FROM system.information_schema.tables
+        WHERE table_catalog = ?
+            AND table_schema IN (
+                'main_marts', 'main_intermediate', 'main_staging',
+                'main_seeds', 'raw_bank'
+            )
+            AND table_name NOT LIKE '\\_dlt%' ESCAPE '\\'
+        ORDER BY table_schema = 'main_marts' DESC, table_schema, table_name
+        """,
+        (data.DB_PATH.stem,),
     )
     st.dataframe(tables, hide_index=True, width="stretch")
     st.caption(
-        "Start with **main_marts.fct_transactions**: one row per "
+        f"Start with **{data.md(FCT)}**: one row per "
         "transaction, already cleaned and categorized."
     )

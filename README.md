@@ -329,6 +329,8 @@ transform/                    dbt project
   models/staging/             one model per bank: types + sign
   models/intermediate/        union → clean → categorize → transfers
   models/marts/               facts, monthly spend, subscriptions
+                              (every model.sql has a model.yml beside it:
+                              column docs and tests)
   seeds/                      merchant_rules, bank_category_map,
                               categories, accounts
   tests/                      singular data tests

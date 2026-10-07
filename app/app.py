@@ -31,8 +31,12 @@ def _sidebar() -> None:
     """Period filter (shared via session_state) and pipeline actions."""
     if data.db_exists():
         bounds = data.query(
-            "SELECT min(txn_date) AS lo, max(txn_date) AS hi "
-            "FROM main_marts.fct_transactions"
+            f"""
+            SELECT
+            min(txn_date) AS lo
+            ,max(txn_date) AS hi
+            FROM {data.CATALOG}.main_marts.fct_transactions
+            """
         ).iloc[0]
         lo, hi = bounds["lo"].date(), bounds["hi"].date()
         choice = st.sidebar.selectbox("Period", list(PERIODS), index=2)

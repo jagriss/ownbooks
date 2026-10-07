@@ -1,6 +1,5 @@
 # Kept alongside the dbt project (--profiles-dir points here via
-# pixi.toml) rather than in ~/.dbt so the whole ELT stack is
-# self-contained in one checkout. DuckDB needs no credentials, so this
+# pixi.toml) so the whole ELT stack is self-contained in one checkout. DuckDB needs no credentials, so this
 # file holds no secrets.
 finance:
   target: dev

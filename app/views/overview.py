@@ -9,31 +9,42 @@ start, end = st.session_state["period"]
 st.title("Overview")
 
 monthly = data.query(
-    """
-    SELECT txn_month, category_group, category, txn_count, spend
-    FROM main_marts.mart_monthly_spend
+    f"""
+    SELECT
+    txn_month
+    ,category_group
+    ,category
+    ,txn_count
+    ,spend
+    FROM {data.CATALOG}.main_marts.mart_monthly_spend
     WHERE txn_month BETWEEN date_trunc('month', ?::date) AND ?
     """,
     (start, end),
 )
 flows = data.query(
-    """
+    f"""
     SELECT
-        sum(spend_amount) FILTER (WHERE is_spend) AS spend,
-        sum(amount) FILTER (WHERE category = 'Income') AS income,
-        count(DISTINCT txn_month) AS months
-    FROM main_marts.fct_transactions
+    sum(spend_amount) FILTER (WHERE is_spend) AS spend
+    ,sum(amount) FILTER (WHERE category = 'Income') AS income
+    ,count(DISTINCT txn_month) AS months
+    FROM {data.CATALOG}.main_marts.fct_transactions
     WHERE txn_date BETWEEN ? AND ?
     """,
     (start, end),
 ).iloc[0]
 subs = data.query(
-    "SELECT sum(annualized_cost) AS annual FROM main_marts.mart_subscriptions"
+    f"""
+    SELECT
+    sum(annualized_cost) AS annual
+    FROM {data.CATALOG}.main_marts.mart_subscriptions
+    """
 ).iloc[0]
 uncategorized = data.query(
-    """
-    SELECT count(*) AS n, coalesce(sum(spend_amount), 0) AS spend
-    FROM main_marts.fct_transactions
+    f"""
+    SELECT
+    count(*) AS n
+    ,coalesce(sum(spend_amount), 0) AS spend
+    FROM {data.CATALOG}.main_marts.fct_transactions
     WHERE category = 'Uncategorized' AND txn_date BETWEEN ? AND ?
     """,
     (start, end),

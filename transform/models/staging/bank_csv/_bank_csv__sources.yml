@@ -8,8 +8,8 @@ sources:
       original column is kept as text under its snake_cased header name;
       typing and sign normalization happen in the staging models. Each
       table's columns are frozen by a dlt schema contract, so a bank
-      changing its export format fails the load instead of silently
-      adding columns.
+      changing its export format fails the load with an error naming
+      the new column.
     schema: raw_bank
     tables:
       - name: chase_checking

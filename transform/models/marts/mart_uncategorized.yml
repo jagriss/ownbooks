@@ -1,0 +1,27 @@
+version: 2
+
+models:
+  - name: mart_uncategorized
+    description: "One row per cleaned description that no merchant rule covers: the list of rules to write next."
+    columns:
+      - name: clean_description
+        description: "description uppercased and whitespace-collapsed, with point-of-sale prefixes, ACH trace IDs, and store numbers removed. Merchant rules match against it."
+        tests:
+          - not_null
+          - unique
+      - name: txn_count
+        description: "Number of transactions with the description."
+      - name: total_amount
+        description: "Sum of the signed amounts; negative means net money out."
+      - name: first_seen
+        description: "Date of the earliest transaction with the description."
+      - name: last_seen
+        description: "Date of the latest transaction with the description."
+      - name: bank_guess
+        description: "Category assigned by the bank-category fallback, if any of the transactions have one."
+      - name: uncategorized_count
+        description: "Number of the transactions with no category at all."
+      - name: account_keys
+        description: "Accounts the description appears in, sorted and comma-separated."
+      - name: example_raw_description
+        description: "The most recent raw bank description, as an example."

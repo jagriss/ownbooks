@@ -8,12 +8,20 @@ start, end = st.session_state["period"]
 st.title("Transactions")
 
 txns = data.query(
-    """
-    SELECT txn_date, merchant_name, category, category_source,
-           category_group, amount,
-           account_name, is_transfer, raw_description, clean_description,
-           matched_pattern
-    FROM main_marts.fct_transactions
+    f"""
+    SELECT
+    txn_date
+    ,merchant_name
+    ,category
+    ,category_source
+    ,category_group
+    ,amount
+    ,account_name
+    ,is_transfer
+    ,raw_description
+    ,clean_description
+    ,matched_pattern
+    FROM {data.CATALOG}.main_marts.fct_transactions
     WHERE txn_date BETWEEN ? AND ?
     ORDER BY txn_date DESC, txn_id
     """,

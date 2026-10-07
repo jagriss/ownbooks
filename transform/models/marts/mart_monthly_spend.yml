@@ -1,0 +1,25 @@
+version: 2
+
+models:
+  - name: mart_monthly_spend
+    description: "One row per month and category: net spend, excluding transfers and income."
+    columns:
+      - name: spend_key
+        description: "Grain key: the month (YYYY-MM) and category, joined by a pipe."
+        tests:
+          - not_null
+          - unique
+      - name: txn_month
+        description: "First day of the month."
+        tests:
+          - not_null
+      - name: category_group
+        description: "Group the category belongs to."
+      - name: category
+        description: "Spending category."
+        tests:
+          - not_null
+      - name: txn_count
+        description: "Number of transactions in the month and category."
+      - name: spend
+        description: "Net spend in the month and category; refunds reduce it."

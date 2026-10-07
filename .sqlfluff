@@ -2,10 +2,13 @@
 dialect = duckdb
 templater = jinja
 max_line_length = 80
-# Surrogate/primary keys are placed first by convention in these
-# models, ahead of the wildcards-then-simple-then-calculated ordering
-# structure.column_order otherwise enforces.
-exclude_rules = structure.column_order
+# Excluded rules:
+# - structure.column_order: key columns lead each select list, ahead of
+#   the wildcards-then-simple-then-calculated order this rule enforces.
+# - layout.select_targets, layout.indent: every model ends with
+#   SELECT / * / FROM final, with * on its own unindented line; these
+#   two rules require it on the SELECT line or indented.
+exclude_rules = structure.column_order, layout.select_targets, layout.indent
 
 [sqlfluff:templater:jinja]
 apply_dbt_builtins = true
@@ -15,3 +18,9 @@ tab_space_size = 4
 
 [sqlfluff:rules:capitalisation.keywords]
 capitalisation_policy = upper
+
+# Leading commas in column and CTE lists (,column_name), and the usual
+# single space after commas inside a line (func(a, b)).
+[sqlfluff:layout:type:comma]
+line_position = leading
+spacing_after = any

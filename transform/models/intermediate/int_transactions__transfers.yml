@@ -1,0 +1,15 @@
+version: 2
+
+models:
+  - name: int_transactions__transfers
+    description: "One row per side of each paired transfer between your own accounts."
+    columns:
+      - name: txn_id
+        description: "One side of a paired transfer."
+        tests:
+          - not_null
+          - unique
+      - name: matched_txn_id
+        description: "txn_id of the other side of the same transfer."
+        tests:
+          - not_null

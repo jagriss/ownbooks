@@ -15,10 +15,15 @@ import data
 st.title("Categorize")
 
 todo = data.query(
-    """
-    SELECT clean_description, bank_guess, txn_count, total_amount,
-           last_seen, example_raw_description
-    FROM main_marts.mart_uncategorized
+    f"""
+    SELECT
+    clean_description
+    ,bank_guess
+    ,txn_count
+    ,total_amount
+    ,last_seen
+    ,example_raw_description
+    FROM {data.CATALOG}.main_marts.mart_uncategorized
     ORDER BY bank_guess IS NOT NULL, abs(total_amount) DESC
     """
 )
@@ -26,9 +31,11 @@ cats = [c for c in data.categories() if c != "Uncategorized"]
 
 # Coverage by where each transaction's category came from.
 by_source = data.query(
-    """
-    SELECT category_source, sum(abs(spend_amount)) AS spend
-    FROM main_marts.fct_transactions
+    f"""
+    SELECT
+    category_source
+    ,sum(abs(spend_amount)) AS spend
+    FROM {data.CATALOG}.main_marts.fct_transactions
     WHERE is_spend
     GROUP BY category_source
     """
@@ -201,13 +208,17 @@ else:
         # Live preview of what the pattern catches.
         matches = (
             data.query(
-                """
-            SELECT txn_date, clean_description, category, category_source,
-                   amount
-            FROM main_marts.fct_transactions
-            WHERE clean_description ILIKE ?
-            ORDER BY txn_date DESC
-            """,
+                f"""
+                SELECT
+                txn_date
+                ,clean_description
+                ,category
+                ,category_source
+                ,amount
+                FROM {data.CATALOG}.main_marts.fct_transactions
+                WHERE clean_description ILIKE ?
+                ORDER BY txn_date DESC
+                """,
                 (pattern,),
             )
             if pattern.strip()

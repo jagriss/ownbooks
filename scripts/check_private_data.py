@@ -16,8 +16,8 @@ Description: Layer 2 of the repo's data-leak protection (.gitignore is
     - contains a Luhn-valid 13-19 digit number (a card number) or an
       email address other than a no-reply / example one.
 Usage: pixi run check-private        (every tracked file)
-       pixi run install-hooks        (run on each commit from now on)
-Parameters: --all checks every tracked file instead of staged ones.
+       pixi run install-hooks        (run on every commit)
+Parameters: --all checks every tracked file; without it, staged files.
 Returns: exit code 0 if clean, 1 with a report if anything is blocked.
 """
 
