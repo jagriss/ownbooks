@@ -20,13 +20,22 @@ models:
                 to: ref('accounts')
                 field: account_key
       - name: category
-        description: Category from the matched rule, or 'Uncategorized'.
+        description: >
+          Category from the matched rule, else the bank's own category
+          mapped via seeds/bank_category_map.csv, else 'Uncategorized'.
         tests:
           - not_null
           - relationships:
               arguments:
                 to: ref('categories')
                 field: category
+      - name: category_source
+        description: Where category came from -- rule, bank, or none.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["rule", "bank", "none"]
       - name: amount
         description: Signed amount; negative is money out.
         tests:
@@ -53,5 +62,6 @@ models:
       the next expected charge date and annualized cost.
   - name: mart_uncategorized
     description: >
-      Uncategorized descriptions ranked by money involved -- the list of
-      rules to write next.
+      Descriptions no merchant rule covers, ranked by money involved --
+      the list of rules to write next. bank_guess is the category the
+      bank-category fallback assigned, if any.

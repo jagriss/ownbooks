@@ -9,7 +9,8 @@ st.title("Transactions")
 
 txns = data.query(
     """
-    SELECT txn_date, merchant_name, category, category_group, amount,
+    SELECT txn_date, merchant_name, category, category_source,
+           category_group, amount,
            account_name, is_transfer, raw_description, clean_description,
            matched_pattern
     FROM main_marts.fct_transactions
@@ -78,6 +79,11 @@ st.dataframe(
         "account_name": "Account",
         "raw_description": st.column_config.TextColumn(
             "Bank description", width="large"
+        ),
+        "category_source": st.column_config.TextColumn(
+            "Source",
+            help="rule = your merchant rule · bank = the bank's own "
+            "category (seeds/bank_category_map.csv) · none = uncategorized",
         ),
         "matched_pattern": st.column_config.TextColumn(
             "Rule", help="The merchant_rules pattern that categorized it"

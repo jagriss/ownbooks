@@ -1,8 +1,9 @@
-"""Categorize: turn uncategorized descriptions into merchant rules.
+"""Categorize: turn descriptions without a rule into merchant rules.
 
 Pick a description, shape a rule (with a live preview of exactly which
 transactions it will catch), save it to seeds/merchant_rules.csv, and
-rebuild -- the loop that `pixi run todo` + hand-editing the CSV did.
+rebuild. Descriptions the bank-category fallback already guessed are
+listed too, with the guess pre-filled, so confirming one is one click.
 All rules are also editable in bulk at the bottom.
 """
 
@@ -13,27 +14,50 @@ import data
 
 st.title("Categorize")
 
-uncat = data.query(
+todo = data.query(
     """
-    SELECT clean_description, txn_count, total_amount, last_seen,
-           example_raw_description
+    SELECT clean_description, bank_guess, txn_count, total_amount,
+           last_seen, example_raw_description
     FROM main_marts.mart_uncategorized
-    ORDER BY abs(total_amount) DESC
+    ORDER BY bank_guess IS NOT NULL, abs(total_amount) DESC
     """
 )
 cats = [c for c in data.categories() if c != "Uncategorized"]
 
-total_spend = data.query(
-    "SELECT sum(abs(spend_amount)) AS s FROM main_marts.fct_transactions"
-).iloc[0]["s"]
-uncat_spend = float(
-    uncat.loc[uncat["total_amount"] < 0, "total_amount"].abs().sum()
-)
-pct = uncat_spend / float(total_spend or 1)
+# Coverage by where each transaction's category came from.
+by_source = data.query(
+    """
+    SELECT category_source, sum(abs(spend_amount)) AS spend
+    FROM main_marts.fct_transactions
+    WHERE is_spend
+    GROUP BY category_source
+    """
+).set_index("category_source")["spend"]
+total = float(by_source.sum() or 1)
+share = {
+    src: float(by_source.get(src, 0)) / total
+    for src in ("rule", "bank", "none")
+}
 st.progress(
-    min(1.0, 1 - pct),
-    text=f"**{1 - pct:.0%}** of spend categorized · {len(uncat)} descriptions to go "
-    f"({data.md(f'${uncat_spend:,.0f}')})",
+    min(1.0, share["rule"] + share["bank"]),
+    text=f"**{share['rule'] + share['bank']:.0%}** of spend categorized: "
+    f"{share['rule']:.0%} by your rules, {share['bank']:.0%} by bank guess · "
+    f"{share['none']:.0%} uncategorized",
+)
+
+view = st.segmented_control(
+    "Show",
+    ["No category", "Bank guesses", "All"],
+    default="No category" if todo["bank_guess"].isna().any() else "All",
+    label_visibility="collapsed",
+)
+uncat = (
+    {
+        "No category": todo[todo["bank_guess"].isna()],
+        "Bank guesses": todo[todo["bank_guess"].notna()],
+    }
+    .get(view, todo)
+    .reset_index(drop=True)
 )
 
 
@@ -57,16 +81,24 @@ def _rebuild_and_rerun(message: str) -> None:
 
 
 # --- Pick a description -----------------------------------------------------
-if uncat.empty:
-    st.success("Everything is categorized.", icon=":material/task_alt:")
+if todo.empty:
+    st.success("Every description has a rule.", icon=":material/task_alt:")
+elif uncat.empty:
+    st.success(f"Nothing in “{view}”.", icon=":material/task_alt:")
 else:
     left, right = st.columns([1, 1], gap="large")
     with left:
-        st.subheader("Uncategorized")
+        st.subheader("Needs a rule")
         st.caption("Biggest money first. Select a row to write a rule for it.")
         picked = st.dataframe(
             uncat[
-                ["clean_description", "txn_count", "total_amount", "last_seen"]
+                [
+                    "clean_description",
+                    "bank_guess",
+                    "txn_count",
+                    "total_amount",
+                    "last_seen",
+                ]
             ],
             hide_index=True,
             width="stretch",
@@ -76,6 +108,11 @@ else:
             key="uncat_table",
             column_config={
                 "clean_description": "Description",
+                "bank_guess": st.column_config.TextColumn(
+                    "Bank guess",
+                    help="Category from the bank's own label, used until "
+                    "a rule covers this description",
+                ),
                 "txn_count": st.column_config.NumberColumn(
                     "Txns", width="small"
                 ),
@@ -93,8 +130,16 @@ else:
     # --- Shape the rule -------------------------------------------------------
     with right:
         desc = selected["clean_description"]
+        guess = (
+            selected["bank_guess"] if pd.notna(selected["bank_guess"]) else None
+        )
         st.subheader("New rule")
         st.caption(f"Bank shows it as `{selected['example_raw_description']}`")
+        if guess:
+            st.caption(
+                f"Currently **{data.md(guess)}**, from the bank's category. "
+                "Save to confirm it, or pick another."
+            )
         k = f"rule::{desc}"  # per-description widget state
         pattern = st.text_input(
             "Pattern",
@@ -110,7 +155,7 @@ else:
         category = c2.selectbox(
             "Category",
             [*cats, "＋ New category…"],
-            index=None,
+            index=cats.index(guess) if guess in cats else None,
             placeholder="Choose…",
             key=f"{k}::category",
         )
@@ -118,8 +163,11 @@ else:
         if category == "＋ New category…":
             n1, n2, n3 = st.columns([2, 2, 1], vertical_alignment="bottom")
             name = n1.text_input("Category name", key=f"{k}::newcat")
+            # "Uncategorized" is a status, not a group to file things under.
             groups = sorted(
-                data.read_seed("categories")["category_group"].unique()
+                g
+                for g in data.read_seed("categories")["category_group"].unique()
+                if g != "Uncategorized"
             )
             group = n2.selectbox(
                 "Group",
@@ -154,7 +202,8 @@ else:
         matches = (
             data.query(
                 """
-            SELECT txn_date, clean_description, category, amount
+            SELECT txn_date, clean_description, category, category_source,
+                   amount
             FROM main_marts.fct_transactions
             WHERE clean_description ILIKE ?
             ORDER BY txn_date DESC
@@ -164,8 +213,15 @@ else:
             if pattern.strip()
             else pd.DataFrame()
         )
-        recat = (
-            matches[matches["category"] != "Uncategorized"]
+        # Rule-categorized matches only change if this rule outranks
+        # theirs; bank guesses are always replaced by any rule.
+        ruled = (
+            matches[matches["category_source"] == "rule"]
+            if not matches.empty
+            else matches
+        )
+        guessed = (
+            matches[matches["category_source"] == "bank"]
             if not matches.empty
             else matches
         )
@@ -185,14 +241,19 @@ else:
                     else ""
                 )
             )
-            if not recat.empty:
+            if not guessed.empty:
                 st.caption(
-                    f"{len(recat)} of them already have a category "
-                    f"({data.md(', '.join(sorted(recat['category'].unique())))}); they only "
-                    "change if this rule's priority beats their current rule."
+                    f"{len(guessed)} currently use the bank's guess; this "
+                    "rule replaces it."
+                )
+            if not ruled.empty:
+                st.caption(
+                    f"{len(ruled)} already match another rule "
+                    f"({data.md(', '.join(sorted(ruled['category'].unique())))}); "
+                    "they only change if this rule's priority beats it."
                 )
             st.dataframe(
-                matches.head(50),
+                matches.drop(columns="category_source").head(50),
                 hide_index=True,
                 width="stretch",
                 height=180,

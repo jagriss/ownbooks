@@ -41,6 +41,11 @@ seeds:
         category_group: varchar
         is_essential: boolean
         is_spend: boolean
+    bank_category_map:
+      +column_types:
+        institution: varchar
+        bank_category: varchar
+        category: varchar
     accounts:
       +column_types:
         account_key: varchar

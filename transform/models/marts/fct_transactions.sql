@@ -41,6 +41,7 @@ SELECT
     categorized.clean_description,
     categorized.merchant_name,
     categorized.category,
+    categorized.category_source,
     categories.category_group,
     categories.is_essential,
     categories.is_spend,

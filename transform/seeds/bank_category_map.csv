@@ -1,0 +1,15 @@
+institution,bank_category,category
+chase,Food & Drink,Dining
+chase,Groceries,Groceries
+chase,Gas,Gas
+chase,Shopping,Shopping
+chase,Travel,Travel
+chase,Bills & Utilities,Utilities
+amex,Restaurant-%,Dining
+amex,Merchandise & Supplies-Groceries,Groceries
+amex,Merchandise & Supplies-Wholesale Stores,Groceries
+amex,Merchandise & Supplies-%,Shopping
+amex,Travel-%,Travel
+amex,Transportation-Taxis & Coach,Rideshare
+amex,Transportation-Fuel,Gas
+amex,Communications-%,Utilities

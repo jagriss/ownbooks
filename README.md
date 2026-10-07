@@ -32,7 +32,7 @@ however they like. I wanted something I could trust and correct:
 | | |
 |---|---|
 | **Loads Chase and Amex exports** | Detects each export format from its header, so you drop files in a folder and that's it. Re-downloading overlapping date ranges never creates duplicates. |
-| **Cleans and categorizes** | Strips the noise from bank descriptions (`SQ *BLUE BOTTLE COFFEE` → `BLUE BOTTLE COFFEE`, `WHOLEFDS MKT 10234` → `WHOLEFDS MKT`), then applies prioritized merchant rules. |
+| **Cleans and categorizes** | Strips the noise from bank descriptions (`SQ *BLUE BOTTLE COFFEE` → `BLUE BOTTLE COFFEE`, `WHOLEFDS MKT 10234` → `WHOLEFDS MKT`), then applies prioritized merchant rules. Anything without a rule falls back to the bank's own category. |
 | **Understands money flows** | Normalizes every bank to one sign convention, and pairs card payments with the checking withdrawals that paid them, so paying a card isn't counted as spending twice. |
 | **Finds subscriptions** | Flags charges that recur monthly for a near-constant amount, and shows what's due in the next week and what looks cancelled. |
 | **Categorizes interactively** | Pick an uncategorized merchant, preview exactly which transactions a rule would catch, save, and the warehouse rebuilds. |
@@ -72,7 +72,7 @@ however they like. I wanted something I could trust and correct:
             │  dbt intermediate  ─ union → clean descriptions → apply rules
             │                      → pair transfers between my accounts
             │      ▲
-            │      └── seeds: merchant_rules.csv · categories.csv · accounts.csv
+            │      └── seeds: merchant_rules · bank_category_map · categories · accounts
             ▼                                       ▲
  marts: fct_transactions · mart_monthly_spend       │ the app writes rules here
         mart_subscriptions · mart_uncategorized     │
@@ -130,6 +130,21 @@ beats `UBER%` at 10.
 transaction records which pattern matched it. Description cleanup
 (dropping POS prefixes, ACH trace IDs, and store numbers) does most of
 the heavy lifting, so a few dozen rules cover most spending.
+
+**The long tail falls back to the bank's own category.** Chase card and
+Amex exports label every transaction ("Food & Drink",
+"Restaurant-Restaurant"). `bank_category_map.csv` maps those labels onto
+my categories, and any transaction with no matching rule takes that
+guess. Every transaction records whether its category came from a
+`rule`, a `bank` guess, or `none`. On the dummy data, this took
+uncategorized spend from about 43% to 3% without writing a single
+rule. Rules always win, so the Categorize page lists bank guesses with
+the guess prefilled, and confirming or correcting one is a click.
+
+I considered machine learning for the tail. With one person's data, a
+model mostly re-learns what the rules and bank labels already know, and
+it gives up determinism. A small local model that only *suggests*
+categories remains an option.
 
 ### 5. Transfers are paired, not just labeled
 
@@ -263,7 +278,8 @@ transform/                    dbt project
   models/staging/             one model per bank: types + sign
   models/intermediate/        union → clean → categorize → transfers
   models/marts/               facts, monthly spend, subscriptions
-  seeds/                      merchant_rules, categories, accounts
+  seeds/                      merchant_rules, bank_category_map,
+                              categories, accounts
   tests/                      singular data tests
 app/
   app.py                      navigation, sidebar, new-file banner
@@ -296,7 +312,7 @@ tests/                        parser unit tests + synthetic fixtures
 
 - More banks. Each one is a header signature in `bank_csv.py` plus one
   staging model.
-- Rule suggestions: propose a pattern and category from similar
-  merchants already categorized.
+- Rule suggestions from a small local model, for merchants the bank
+  doesn't label (Chase checking has no category column).
 - Monthly budgets per category group, with pace-to-date on the Overview.
 - A one-word launcher (`finance`) via a shell alias.

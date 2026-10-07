@@ -14,6 +14,27 @@ seeds:
               arguments:
                 to: ref('categories')
                 field: category
+  - name: bank_category_map
+    description: >
+      Fallback for transactions no merchant rule matches: maps the
+      category the bank itself assigns (Chase card and Amex exports carry
+      one; Chase checking doesn't) to one of ours. `bank_category` is an
+      ILIKE pattern (Restaurant-% covers every Amex restaurant subtype);
+      the longest matching pattern wins, so specific rows beat catch-alls.
+      Leave a bank category out when no mapping is clearly right -- those
+      transactions stay Uncategorized and surface for a rule instead.
+    columns:
+      - name: institution
+        tests:
+          - accepted_values:
+              arguments:
+                values: ["chase", "amex"]
+      - name: category
+        tests:
+          - relationships:
+              arguments:
+                to: ref('categories')
+                field: category
   - name: categories
     description: >
       Category list. is_spend = false excludes a category from spend
