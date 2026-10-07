@@ -21,8 +21,9 @@ however they like. I wanted something I could trust and correct:
 - **My data stays on my machine.** Bank CSV exports go in, and a single
   DuckDB file comes out.
 - **Categorization I can read.** Every category comes from a rule in a
-  CSV file. I can see why a transaction landed where it did, and fixing
-  it is a one-line change.
+  CSV file, or, until I write one, from the bank's own label, and each
+  transaction says which. I can see why a transaction landed where it
+  did, and fixing it is a one-line change.
 - **A real data stack in miniature.** It's a weekend-sized project that
   uses the same ingestion, transformation, and testing patterns you'd
   use on a production warehouse.
@@ -35,7 +36,7 @@ however they like. I wanted something I could trust and correct:
 | **Cleans and categorizes** | Strips the noise from bank descriptions (`SQ *BLUE BOTTLE COFFEE` → `BLUE BOTTLE COFFEE`, `WHOLEFDS MKT 10234` → `WHOLEFDS MKT`), then applies prioritized merchant rules. Anything without a rule falls back to the bank's own category. |
 | **Understands money flows** | Normalizes every bank to one sign convention, and pairs card payments with the checking withdrawals that paid them, so paying a card isn't counted as spending twice. |
 | **Finds subscriptions** | Flags charges that recur monthly for a near-constant amount, and shows what's due in the next week and what looks cancelled. |
-| **Categorizes interactively** | Pick an uncategorized merchant, preview exactly which transactions a rule would catch, save, and the warehouse rebuilds. |
+| **Categorizes interactively** | Pick a merchant with no rule, preview exactly which transactions a rule would catch, save, and the warehouse rebuilds. Bank guesses come prefilled, so confirming one is a click. |
 | **Protects itself** | Refreshes build on a copy and swap in only if every data test passes. A pre-commit hook blocks financial data from ever reaching git. |
 
 <table>
@@ -44,7 +45,7 @@ however they like. I wanted something I could trust and correct:
 <td><img src="docs/images/subscriptions.png" alt="Subscriptions page"></td>
 </tr>
 <tr>
-<td align="center"><sub>Categorize: write a rule with a live preview</sub></td>
+<td align="center"><sub>Categorize: confirm a bank guess or write a rule, with a live preview</sub></td>
 <td align="center"><sub>Subscriptions: recurring charges and renewals</sub></td>
 </tr>
 </table>
@@ -240,10 +241,17 @@ pixi run app             # opens http://localhost:8501; click "Load"
    ```
 3. **Open the app** (`pixi run app`). New files show up in a banner at
    the top of every page. Click **Load**.
-4. **Categorize.** The Categorize page lists uncategorized merchants by
-   the most money first. Each rule you save rebuilds the warehouse and
-   moves the progress bar. A dbt warning nags until less than 5% of
-   spending is uncategorized.
+4. **Categorize.** Most transactions arrive already categorized from the
+   bank's own labels. The Categorize page shows how much of your
+   spending comes from your rules, from bank guesses, or neither, and
+   lists every merchant without a rule, most money first:
+   - **No category:** no rule and no bank label. Write a rule.
+   - **Bank guesses:** the guess is prefilled. Save to confirm it, or
+     pick another category.
+
+   Each save rebuilds the warehouse. A dbt warning nags until less than
+   5% of spending is uncategorized. To change what a bank label maps to,
+   edit `transform/seeds/bank_category_map.csv`.
 
 Keep rules impersonal, since the seed CSVs are committed. Write
 `ZELLE PAYMENT TO LANDLORD%`, not your landlord's name.
@@ -303,7 +311,8 @@ tests/                        parser unit tests + synthetic fixtures
 |---|---|
 | `unique` / `not_null` on `txn_id` | a deduplication regression |
 | `relationships` on `account_key` | a statements folder with no `accounts.csv` row |
-| `relationships` on `category` | a rule pointing at a category that doesn't exist |
+| `relationships` on `category` | a rule or bank mapping pointing at a category that doesn't exist |
+| `accepted_values` on `category_source` | a transaction categorized by anything other than `rule`, `bank`, or `none` |
 | `assert_card_payments_are_inflows` | a bank's sign convention flipped |
 | `assert_transfers_are_matched` (warn) | a payment whose other side isn't exported yet |
 | `assert_uncategorized_spend_under_5pct` (warn) | rules left to write |
