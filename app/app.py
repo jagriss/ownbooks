@@ -15,7 +15,7 @@ from dateutil.relativedelta import relativedelta
 import data
 
 st.set_page_config(
-    page_title="Finance", page_icon=":material/savings:", layout="wide"
+    page_title="ownbooks", page_icon=":material/savings:", layout="wide"
 )
 
 PERIODS = {

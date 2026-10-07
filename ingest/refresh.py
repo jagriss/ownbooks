@@ -36,6 +36,17 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 TRANSFORM = ROOT / "transform"
 
+# Nothing leaves the machine at runtime: dlt and dbt send anonymous usage
+# telemetry by default, and dbt Fusion checks a CDN for updates each run.
+# scripts/activate-env.sh sets these for pixi tasks; they're applied here
+# too so the app's refreshes stay offline however it was launched.
+OFFLINE_ENV = {
+    "RUNTIME__DLTHUB_TELEMETRY": "false",
+    "DO_NOT_TRACK": "1",
+    "DBT_SEND_ANONYMOUS_USAGE_STATS": "false",
+    "DBT_DISABLE_VERSION_CHECK": "1",
+}
+
 
 def live_path() -> Path:
     return Path(
@@ -115,7 +126,7 @@ def refresh(
             if _wal(live).exists():
                 shutil.copy2(_wal(live), _wal(build))
 
-        env = os.environ.copy()
+        env = {**OFFLINE_ENV, **os.environ}
         env["FINANCE_DUCKDB_PATH"] = str(build)
         # dlt keeps pipeline state in a local working dir. Start each
         # build with an empty one so state is restored from the copy

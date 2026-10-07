@@ -19,3 +19,11 @@ fi
 # the app all resolve the same files whatever directory a task runs in.
 export FINANCE_DUCKDB_PATH="${FINANCE_DUCKDB_PATH:-$PIXI_PROJECT_ROOT/data/finance.duckdb}"
 export FINANCE_STATEMENTS_ROOT="${FINANCE_STATEMENTS_ROOT:-$PIXI_PROJECT_ROOT/data/statements}"
+
+# Privacy: nothing leaves this machine at runtime. dlt and dbt both send
+# anonymous usage telemetry by default, and dbt Fusion also checks a CDN
+# for new versions on every run. Off, unless the shell or .env opts in.
+export RUNTIME__DLTHUB_TELEMETRY="${RUNTIME__DLTHUB_TELEMETRY:-false}"
+export DO_NOT_TRACK="${DO_NOT_TRACK:-1}"
+export DBT_SEND_ANONYMOUS_USAGE_STATS="${DBT_SEND_ANONYMOUS_USAGE_STATS:-false}"
+export DBT_DISABLE_VERSION_CHECK="${DBT_DISABLE_VERSION_CHECK:-1}"

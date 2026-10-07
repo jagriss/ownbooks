@@ -40,7 +40,7 @@ __pycache__/
 .venv/
 
 # dlt working state
-.dlt/
+.dlt/*
 !.dlt/config.toml
 
 # dbt (compiled SQL, run results, and logs can echo data values)

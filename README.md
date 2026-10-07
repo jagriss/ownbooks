@@ -1,29 +1,47 @@
-# finance-categorizer
+# ownbooks
 
-**A local-first personal finance warehouse.** It turns the CSV exports
-from my Chase and Amex accounts into clean, categorized, deduplicated
-transactions, then shows them in a small app where I can explore
-spending, catch subscriptions, and teach it new categories with a click.
+**Personal finance that never leaves your laptop.**
 
-Everything runs on my laptop. No bank logins, no aggregator, no cloud.
+ownbooks turns the CSV exports from my Chase and Amex accounts into
+clean, categorized, deduplicated transactions, then shows them in a
+small app where I can explore spending, catch subscriptions, and teach
+it new categories with a click. It runs entirely on my own machine.
 
 ![Overview page](docs/images/overview.png)
 
 <sub>All screenshots use the synthetic data from `pixi run dummy-data`.</sub>
 
----
+## Private by design
+
+- **No bank logins.** You download your own statements from your bank's
+  website. ownbooks never sees a password and never connects to a bank
+  or an aggregator.
+- **Nothing leaves your device at runtime.** The data lives in local
+  files: your CSVs and a single DuckDB database. The app listens only on
+  `localhost`, and the usage telemetry that dlt, dbt, and Streamlit ship
+  with is switched off. I tested this by routing every process through a
+  logging proxy and recording zero outbound connections.
+- **Your data can't end up on GitHub.** Statements and the database are
+  gitignored, and a pre-commit hook blocks them even with `git add -f`.
+
+*Limits, stated plainly:* the network is used at setup (`pixi install`
+downloads packages), and the optional DuckDB UI downloads its extension
+the first time you open it. The database isn't encrypted, so it's
+exactly as private as your laptop: turn on FileVault (or your OS's disk
+encryption).
 
 ## Why I built it
 
 Budgeting apps want your bank credentials and categorize transactions
-however they like. I wanted something I could trust and correct:
+however they like. I wanted the opposite: my data, on my device, under
+my control.
 
-- **My data stays on my machine.** Bank CSV exports go in, and a single
-  DuckDB file comes out.
-- **Categorization I can read.** Every category comes from a rule in a
+- **Control over categorization.** Every category comes from a rule in a
   CSV file, or, until I write one, from the bank's own label, and each
   transaction says which. I can see why a transaction landed where it
   did, and fixing it is a one-line change.
+- **No lock-in.** It's all plain files and open-source tools. The
+  database is queryable with any DuckDB client, and rules are a CSV.
 - **A real data stack in miniature.** It's a weekend-sized project that
   uses the same ingestion, transformation, and testing patterns you'd
   use on a production warehouse.
@@ -186,19 +204,29 @@ folder.
 
 ### 8. Privacy in layers
 
-This repo is designed to be public while the data is anything but.
+The repo is public; the data is anything but. Each layer covers a
+different way data could leak.
 
-- **`.gitignore`** ignores all of `data/` and every statement or
-  warehouse format (`.csv`, `.pdf`, `.ofx`, `.qfx`, `.xlsx`, `.duckdb`,
-  and so on) anywhere, in any letter case. Chase exports `.CSV`, and a
-  case-sensitive Linux clone would otherwise miss it.
-- **A pre-commit hook** (`scripts/check_private_data.py`) catches what
-  `.gitignore` can't, like `git add -f`. It blocks anything under
-  `data/`, CSVs outside the allowed folders, oversized test fixtures, and
-  content that looks like a card number (Luhn-checked) or a real email.
-- **The app is local-only.** It binds to `localhost` with telemetry off,
-  and stored file paths are relative, so the database doesn't contain my
-  home directory.
+- **Off the network.** dlt and dbt send anonymous usage telemetry by
+  default, and dbt Fusion checks a CDN for updates on every run. All
+  three are disabled in project config (`.dlt/config.toml`,
+  `dbt_project.yml`), in the pixi environment (`scripts/activate-env.sh`),
+  and in the refresh runner itself, so the app stays offline however
+  it's launched. Streamlit's telemetry is off in `.streamlit/config.toml`.
+  I verified this by pointing every process at a proxy that logs and
+  drops connections. Before: 8 calls per refresh to dltHub and dbt Labs.
+  After: zero, across the pipeline, the app server, and the browser.
+- **Out of git.** `.gitignore` ignores all of `data/` and every
+  statement or warehouse format (`.csv`, `.pdf`, `.ofx`, `.qfx`,
+  `.xlsx`, `.duckdb`, and so on) anywhere, in any letter case. Chase
+  exports `.CSV`, and a case-sensitive Linux clone would otherwise miss
+  it. A pre-commit hook (`scripts/check_private_data.py`) catches what
+  `.gitignore` can't, like `git add -f`: anything under `data/`, CSVs
+  outside the allowed folders, oversized test fixtures, and content that
+  looks like a card number (Luhn-checked) or a real email address.
+- **Off the LAN.** The app binds to `localhost`, so nothing else on your
+  network can reach it. Stored file paths are relative, so the database
+  doesn't even contain my home directory.
 
 ### 9. Charts: one hue and emphasis, not a rainbow
 
@@ -213,7 +241,7 @@ one string as LaTeX math. I learned that from a garbled banner.
 Requires [pixi](https://pixi.sh) (`brew install pixi`).
 
 ```bash
-git clone <this repo> && cd finance-categorizer
+git clone https://github.com/jagriss/ownbooks.git && cd ownbooks
 pixi install
 pixi run install-hooks   # enable the data-leak guard (once per clone)
 ```

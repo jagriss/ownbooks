@@ -1,7 +1,7 @@
 [workspace]
-name = "finance-categorizer"
+name = "ownbooks"
 version = "0.1.0"
-description = "Personal finance ELT: bank CSV exports -> dlt -> DuckDB -> dbt"
+description = "Personal finance that never leaves your laptop: bank CSVs -> dlt -> DuckDB -> dbt -> Streamlit"
 channels = ["conda-forge"]
 platforms = ["osx-arm64", "linux-64"]
 

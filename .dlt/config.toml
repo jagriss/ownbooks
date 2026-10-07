@@ -1,0 +1,4 @@
+# dlt project config (committed; secrets would go in .dlt/secrets.toml,
+# which is gitignored). Privacy: no usage telemetry to dltHub.
+[runtime]
+dlthub_telemetry = false
